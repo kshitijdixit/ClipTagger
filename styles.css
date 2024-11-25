@@ -94,6 +94,14 @@ button:hover {
 .copy-button:hover {
     background-color: #1976D2;
 }
+.delete-button {
+    background-color: #dc3545;
+    margin-right: 8px;
+}
+
+.delete-button:hover {
+    background-color: #c82333;
+}
 
 .success-message {
     color: #4CAF50;

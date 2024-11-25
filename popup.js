@@ -80,11 +80,17 @@ function createClipboardItemElement(item) {
     const actions = document.createElement('div');
     actions.className = 'clip-actions';
     
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'delete-button';
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', () => deleteClipboardItem(item.id));
+
     const copyButton = document.createElement('button');
     copyButton.className = 'copy-button';
     copyButton.textContent = 'Copy';
     copyButton.addEventListener('click', () => copyToClipboard(item.content, copyButton));
     
+    actions.appendChild(deleteButton);
     actions.appendChild(copyButton);
     
     div.appendChild(content);
@@ -103,6 +109,17 @@ async function copyToClipboard(text, button) {
         button.textContent = 'Copied!';
         setTimeout(() => {
             button.textContent = originalText;
+async function deleteClipboardItem(itemId) {
+    // Remove the item from the clipboardItems array
+    clipboardItems = clipboardItems.filter(item => item.id !== itemId);
+    
+    // Update chrome.storage.local
+    await chrome.storage.local.set({ clipboardItems });
+    
+    // Re-render the list
+    renderClipboardItems(clipboardItems);
+}
+
         }, 1500);
     } catch (err) {
         console.error('Failed to copy:', err);
