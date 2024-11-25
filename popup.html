@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Tagged Clipboard Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Tagged Clipboard Manager</h1>
+        
+        <div class="save-section">
+            <textarea id="clipboardContent" placeholder="Paste content here..."></textarea>
+            <div class="tag-input-container">
+                <input type="text" id="tagInput" placeholder="Add tags (comma-separated)">
+                <button id="saveButton">Save</button>
+            </div>
+        </div>
+
+        <div class="filter-section">
+            <input type="text" id="searchInput" placeholder="Search by tags...">
+        </div>
+
+        <div class="clips-container" id="clipsContainer">
+            <!-- Clipboard items will be dynamically added here -->
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
