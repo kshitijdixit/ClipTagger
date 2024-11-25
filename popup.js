@@ -1,68 +1,78 @@
+// Global state
 let clipboardItems = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadClipboardItems();
-    setupEventListeners();
-});
-
-function setupEventListeners() {
-    document.getElementById('saveButton').addEventListener('click', saveClipboardItem);
-    document.getElementById('searchInput').addEventListener('input', filterClipboardItems);
-    
-    // Listen for paste events in the textarea
-    document.getElementById('clipboardContent').addEventListener('paste', (e) => {
-        e.preventDefault();
-        const text = e.clipboardData.getData('text/plain');
-        e.target.value = text;
-    });
-}
-
+// Utility Functions
 async function loadClipboardItems() {
-    const result = await chrome.storage.local.get('clipboardItems');
-    clipboardItems = result.clipboardItems || [];
-    renderClipboardItems(clipboardItems);
+    try {
+        const result = await chrome.storage.local.get('clipboardItems');
+        clipboardItems = result.clipboardItems || [];
+        renderClipboardItems(clipboardItems);
+    } catch (error) {
+        console.error('Error loading clipboard items:', error);
+    }
 }
 
 async function saveClipboardItem() {
-    const content = document.getElementById('clipboardContent').value.trim();
-    const tagsInput = document.getElementById('tagInput').value.trim();
-    
-    if (!content) return;
-
-    const tags = tagsInput.split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
-
-    const newItem = {
-        id: Date.now(),
-        content,
-        tags,
-        timestamp: new Date().toISOString()
-    };
-
-    clipboardItems.unshift(newItem);
-    await chrome.storage.local.set({ clipboardItems });
-    
-    // Clear inputs
-    document.getElementById('clipboardContent').value = '';
-    document.getElementById('tagInput').value = '';
-    
-    renderClipboardItems(clipboardItems);
+    try {
+        const content = document.getElementById('clipboardContent').value;
+        const tags = document.getElementById('tagInput').value
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag);
+        
+        const newItem = {
+            id: Date.now(),
+            content,
+            tags,
+            timestamp: new Date().toISOString()
+        };
+        
+        clipboardItems.unshift(newItem);
+        await chrome.storage.local.set({ clipboardItems });
+        
+        // Clear input fields
+        document.getElementById('clipboardContent').value = '';
+        document.getElementById('tagInput').value = '';
+        
+        // Re-render the list
+        renderClipboardItems(clipboardItems);
+    } catch (error) {
+        console.error('Error saving clipboard item:', error);
+    }
 }
 
-function renderClipboardItems(items) {
-    const container = document.getElementById('clipsContainer');
-    container.innerHTML = '';
-
-    items.forEach(item => {
-        const itemElement = createClipboardItemElement(item);
-        container.appendChild(itemElement);
-    });
+async function deleteClipboardItem(itemId) {
+    try {
+        const result = await chrome.storage.local.get('clipboardItems');
+        let items = result.clipboardItems || [];
+        items = items.filter(item => item.id !== itemId);
+        
+        await chrome.storage.local.set({ clipboardItems: items });
+        clipboardItems = items;
+        renderClipboardItems(items);
+    } catch (error) {
+        console.error('Error deleting item:', error);
+    }
 }
 
+async function copyToClipboard(text, button) {
+    try {
+        await navigator.clipboard.writeText(text);
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+            button.textContent = originalText;
+        }, 1500);
+    } catch (error) {
+        console.error('Failed to copy:', error);
+    }
+}
+
+// DOM Functions
 function createClipboardItemElement(item) {
-    const div = document.createElement('div');
-    div.className = 'clip-item';
+    const clipElement = document.createElement('div');
+    clipElement.className = 'clip-item';
+    clipElement.dataset.id = item.id;
     
     const content = document.createElement('div');
     content.className = 'clip-content';
@@ -77,62 +87,53 @@ function createClipboardItemElement(item) {
         tags.appendChild(tagSpan);
     });
     
-    const actions = document.createElement('div');
-    actions.className = 'clip-actions';
+    const clipActions = document.createElement('div');
+    clipActions.className = 'clip-actions';
     
     const deleteButton = document.createElement('button');
     deleteButton.className = 'delete-button';
     deleteButton.textContent = 'Delete';
-    deleteButton.addEventListener('click', () => deleteClipboardItem(item.id));
-
+    deleteButton.onclick = () => deleteClipboardItem(item.id);
+    
     const copyButton = document.createElement('button');
     copyButton.className = 'copy-button';
     copyButton.textContent = 'Copy';
-    copyButton.addEventListener('click', () => copyToClipboard(item.content, copyButton));
+    copyButton.onclick = () => copyToClipboard(item.content, copyButton);
     
-    actions.appendChild(deleteButton);
-    actions.appendChild(copyButton);
+    clipActions.appendChild(deleteButton);
+    clipActions.appendChild(copyButton);
     
-    div.appendChild(content);
-    div.appendChild(tags);
-    div.appendChild(actions);
+    clipElement.appendChild(content);
+    clipElement.appendChild(tags);
+    clipElement.appendChild(clipActions);
     
-    return div;
+    return clipElement;
 }
 
-async function copyToClipboard(text, button) {
-    try {
-        await navigator.clipboard.writeText(text);
-        
-        // Visual feedback
-        const originalText = button.textContent;
-        button.textContent = 'Copied!';
-        setTimeout(() => {
-            button.textContent = originalText;
-async function deleteClipboardItem(itemId) {
-    // Remove the item from the clipboardItems array
-    clipboardItems = clipboardItems.filter(item => item.id !== itemId);
-    
-    // Update chrome.storage.local
-    await chrome.storage.local.set({ clipboardItems });
-    
-    // Re-render the list
-    renderClipboardItems(clipboardItems);
+function renderClipboardItems(items) {
+    const container = document.getElementById('clipsContainer');
+    container.innerHTML = '';
+    items.forEach(item => {
+        container.appendChild(createClipboardItemElement(item));
+    });
 }
 
-        }, 1500);
-    } catch (err) {
-        console.error('Failed to copy:', err);
-    }
-}
-
-function filterClipboardItems(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    
+function filterClipboardItems(searchTerm) {
+    searchTerm = searchTerm.toLowerCase();
     const filteredItems = clipboardItems.filter(item => {
         return item.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
                item.content.toLowerCase().includes(searchTerm);
     });
-    
     renderClipboardItems(filteredItems);
 }
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    loadClipboardItems();
+    
+    document.getElementById('saveButton').addEventListener('click', saveClipboardItem);
+    
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        filterClipboardItems(e.target.value);
+    });
+});
