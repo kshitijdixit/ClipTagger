@@ -15,14 +15,28 @@ async function loadClipboardItems() {
 async function saveClipboardItem() {
     try {
         const content = document.getElementById('clipboardContent').value;
+        const docLink = document.getElementById('docLink').value;
+        const docUpload = document.getElementById('docUpload').files[0];
         const tags = document.getElementById('tagInput').value
             .split(',')
             .map(tag => tag.trim())
             .filter(tag => tag);
         
+        let docData = null;
+        if (docUpload) {
+            docData = await docUpload.arrayBuffer();
+            docData = Array.from(new Uint8Array(docData));
+        }
+        
         const newItem = {
             id: Date.now(),
             content,
+            docLink: docLink || null,
+            docFile: docData ? {
+                name: docUpload.name,
+                type: docUpload.type,
+                data: docData
+            } : null,
             tags,
             timestamp: new Date().toISOString()
         };
@@ -32,9 +46,10 @@ async function saveClipboardItem() {
         
         // Clear input fields
         document.getElementById('clipboardContent').value = '';
+        document.getElementById('docLink').value = '';
+        document.getElementById('docUpload').value = '';
         document.getElementById('tagInput').value = '';
         
-        // Re-render the list
         renderClipboardItems(clipboardItems);
     } catch (error) {
         console.error('Error saving clipboard item:', error);
@@ -52,6 +67,18 @@ async function deleteClipboardItem(itemId) {
         renderClipboardItems(items);
     } catch (error) {
         console.error('Error deleting item:', error);
+function downloadDocument(docFile) {
+    const blob = new Blob([new Uint8Array(docFile.data)], { type: docFile.type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = docFile.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
     }
 }
 
@@ -77,6 +104,23 @@ function createClipboardItemElement(item) {
     const content = document.createElement('div');
     content.className = 'clip-content';
     content.textContent = item.content;
+    
+    if (item.docLink) {
+        const link = document.createElement('a');
+        link.href = item.docLink;
+        link.textContent = 'Open Document Link';
+        link.target = '_blank';
+        link.className = 'doc-link';
+        content.appendChild(link);
+    }
+    
+    if (item.docFile) {
+        const downloadButton = document.createElement('button');
+        downloadButton.textContent = `Download ${item.docFile.name}`;
+        downloadButton.className = 'download-button';
+        downloadButton.onclick = () => downloadDocument(item.docFile);
+        content.appendChild(downloadButton);
+    }
     
     const tags = document.createElement('div');
     tags.className = 'clip-tags';

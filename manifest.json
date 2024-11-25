@@ -6,7 +6,8 @@
   "permissions": [
     "storage",
     "clipboardRead",
-    "clipboardWrite"
+    "clipboardWrite",
+    "downloads"
   ],
   "action": {
     "default_popup": "popup.html",
