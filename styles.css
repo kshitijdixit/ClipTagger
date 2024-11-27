@@ -130,3 +130,18 @@ button:hover {
 .download-button:hover {
     background-color: #45a049;
 }
+
+.open-button {
+    display: block;
+    margin-top: 8px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.open-button:hover {
+    background-color: #1976D2;
+}

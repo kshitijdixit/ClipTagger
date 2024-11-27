@@ -1,3 +1,16 @@
+// Utility function to save data to a file
+async function saveToFile(filePath, blob) {
+    try {
+        const fs = await window.requestFileSystem(window.PERSISTENT, 1024*1024);
+        const writer = await new Promise((resolve, reject) => {
+            fs.root.getFile(filePath, {create: true}, resolve, reject);
+        });
+        await writer.write(blob);
+    } catch (error) {
+        console.error('Error saving file:', error);
+        throw error;
+    }
+}
 // Global state
 let clipboardItems = [];
 
@@ -24,25 +37,44 @@ async function saveClipboardItem() {
         
         let docData = null;
         if (docUpload) {
-            docData = await docUpload.arrayBuffer();
-            docData = Array.from(new Uint8Array(docData));
+            // Save file to local directory
+            const fs = await window.requestFileSystem(window.PERSISTENT, 1024*1024);
+            const fileName = `${Date.now()}_${docUpload.name}`;
+            const filePath = `tagged_clipboard_documents/${fileName}`;
+            
+            // Write file
+            const writer = await new Promise((resolve, reject) => {
+                fs.root.getFile(filePath, {create: true}, resolve, reject);
+            });
+            
+            const blob = new Blob([await docUpload.arrayBuffer()], {type: docUpload.type});
+            await writer.write(blob);
+            
+            // Store file reference
+            docData = {
+                name: docUpload.name,
+                path: filePath,
+                type: docUpload.type
+            };
         }
         
+        // Save to storage
         const newItem = {
             id: Date.now(),
             content,
             docLink: docLink || null,
-            docFile: docData ? {
-                name: docUpload.name,
-                type: docUpload.type,
-                data: docData
-            } : null,
+            docFile: docData,
             tags,
             timestamp: new Date().toISOString()
         };
         
         clipboardItems.unshift(newItem);
         await chrome.storage.local.set({ clipboardItems });
+        
+        // Save to local file
+        const storageData = JSON.stringify(clipboardItems);
+        const storageBlob = new Blob([storageData], {type: 'application/json'});
+        await saveToFile('storage/clipboard_data.json', storageBlob);
         
         // Clear input fields
         document.getElementById('clipboardContent').value = '';
@@ -67,16 +99,18 @@ async function deleteClipboardItem(itemId) {
         renderClipboardItems(items);
     } catch (error) {
         console.error('Error deleting item:', error);
-function downloadDocument(docFile) {
-    const blob = new Blob([new Uint8Array(docFile.data)], { type: docFile.type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = docFile.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+async function openDocument(docFile) {
+    try {
+        const fs = await window.requestFileSystem(window.PERSISTENT, 1024*1024);
+        const file = await new Promise((resolve, reject) => {
+            fs.root.getFile(docFile.path, {}, resolve, reject);
+        });
+        
+        // Open file using default application
+        chrome.downloads.open(file);
+    } catch (error) {
+        console.error('Error opening document:', error);
+    }
 }
 
     }
@@ -115,11 +149,11 @@ function createClipboardItemElement(item) {
     }
     
     if (item.docFile) {
-        const downloadButton = document.createElement('button');
-        downloadButton.textContent = `Download ${item.docFile.name}`;
-        downloadButton.className = 'download-button';
-        downloadButton.onclick = () => downloadDocument(item.docFile);
-        content.appendChild(downloadButton);
+        const openButton = document.createElement('button');
+        openButton.textContent = `Open ${item.docFile.name}`;
+        openButton.className = 'open-button';
+        openButton.onclick = () => openDocument(item.docFile);
+        content.appendChild(openButton);
     }
     
     const tags = document.createElement('div');

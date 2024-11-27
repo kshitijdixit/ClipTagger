@@ -7,8 +7,10 @@
     "storage",
     "clipboardRead",
     "clipboardWrite",
-    "downloads"
+    "downloads",
+    "fileSystem"
   ],
+  "optional_permissions": ["downloads.open"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
