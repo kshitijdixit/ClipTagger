@@ -185,6 +185,18 @@ function filterClipboardItems(searchTerm) {
 }
 
 // Event Listeners
+// Add backup import functionality
+async function importBackup(file) {
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        await chrome.storage.local.set({ clipboardItems: data });
+        loadClipboardItems(); // Refresh the display
+    } catch (error) {
+        console.error('Error importing backup:', error);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadClipboardItems();
     
@@ -193,4 +205,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('searchInput').addEventListener('input', (e) => {
         filterClipboardItems(e.target.value);
     });
+
+    // Add backup import functionality
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    fileInput.onchange = (e) => {
+        if (e.target.files.length > 0) {
+            importBackup(e.target.files[0]);
+        }
+    };
+    document.body.appendChild(fileInput);
+
+    // Add import button
+    const importButton = document.createElement('button');
+    importButton.textContent = 'Import Backup';
+    importButton.onclick = () => fileInput.click();
+    document.querySelector('.filter-section').appendChild(importButton);
 });

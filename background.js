@@ -9,27 +9,30 @@ chrome.runtime.onInstalled.addListener(async () => {
         
         if (downloadQuery.length > 0) {
             const backupFile = downloadQuery[0];
-            const response = await fetch(`file://${backupFile.filename}`);
-            if (response.ok) {
-                const data = await response.json();
-                await chrome.storage.local.set({ clipboardItems: data });
-                console.log('Restored data from backup');
-            }
+            
+            // Use chrome.downloads.open to let user select the backup file
+            chrome.downloads.download({
+                url: chrome.runtime.getURL('backup-instructions.html'),
+                filename: 'backup-instructions.html'
+            });
+            
+            // Initialize with empty storage for now
+            chrome.storage.local.set({ clipboardItems: [] });
         } else {
             // Initialize empty storage if no backup exists
             chrome.storage.local.set({ clipboardItems: [] });
         }
     } catch (error) {
-        console.error('Error loading backup:', error);
+        console.error('Error checking backup:', error);
         chrome.storage.local.set({ clipboardItems: [] });
     }
 });
 
-// Add backup functionality
+// Keep the existing backup creation code
 chrome.storage.onChanged.addListener(async (changes, namespace) => {
     if (namespace === 'local' && changes.clipboardItems) {
         try {
-            const data = JSON.stringify(changes.clipboardItems.newValue);
+            const data = JSON.stringify(changes.clipboardItems.newValue, null, 2);
             const blob = new Blob([data], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             
@@ -41,6 +44,7 @@ chrome.storage.onChanged.addListener(async (changes, namespace) => {
             });
             
             URL.revokeObjectURL(url);
+            console.log('Backup file created in Downloads folder');
         } catch (error) {
             console.error('Error creating backup:', error);
         }

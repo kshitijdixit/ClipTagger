@@ -25,5 +25,9 @@
     "16": "icons/clipboard.svg",
     "48": "icons/clipboard.svg",
     "128": "icons/clipboard.svg"
-  }
+  },
+  "web_accessible_resources": [{
+    "resources": ["backup-instructions.html"],
+    "matches": ["<all_urls>"]
+  }]
 }
