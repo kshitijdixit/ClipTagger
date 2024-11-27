@@ -1,16 +1,3 @@
-// Utility function to save data to a file
-async function saveToFile(filePath, blob) {
-    try {
-        const fs = await window.requestFileSystem(window.PERSISTENT, 1024*1024);
-        const writer = await new Promise((resolve, reject) => {
-            fs.root.getFile(filePath, {create: true}, resolve, reject);
-        });
-        await writer.write(blob);
-    } catch (error) {
-        console.error('Error saving file:', error);
-        throw error;
-    }
-}
 // Global state
 let clipboardItems = [];
 
@@ -37,28 +24,31 @@ async function saveClipboardItem() {
         
         let docData = null;
         if (docUpload) {
-            // Save file to local directory
-            const fs = await window.requestFileSystem(window.PERSISTENT, 1024*1024);
+            // Create a downloads folder for the extension
             const fileName = `${Date.now()}_${docUpload.name}`;
-            const filePath = `tagged_clipboard_documents/${fileName}`;
             
-            // Write file
-            const writer = await new Promise((resolve, reject) => {
-                fs.root.getFile(filePath, {create: true}, resolve, reject);
+            // Convert file to blob URL
+            const blob = new Blob([await docUpload.arrayBuffer()], {type: docUpload.type});
+            const blobUrl = URL.createObjectURL(blob);
+            
+            // Download file to user's download directory
+            const downloadId = await chrome.downloads.download({
+                url: blobUrl,
+                filename: `tagged_clipboard_documents/${fileName}`,
+                saveAs: false
             });
             
-            const blob = new Blob([await docUpload.arrayBuffer()], {type: docUpload.type});
-            await writer.write(blob);
-            
-            // Store file reference
+            // Store download reference
             docData = {
                 name: docUpload.name,
-                path: filePath,
+                downloadId: downloadId,
                 type: docUpload.type
             };
+            
+            // Clean up blob URL
+            URL.revokeObjectURL(blobUrl);
         }
         
-        // Save to storage
         const newItem = {
             id: Date.now(),
             content,
@@ -71,12 +61,7 @@ async function saveClipboardItem() {
         clipboardItems.unshift(newItem);
         await chrome.storage.local.set({ clipboardItems });
         
-        // Save to local file
-        const storageData = JSON.stringify(clipboardItems);
-        const storageBlob = new Blob([storageData], {type: 'application/json'});
-        await saveToFile('storage/clipboard_data.json', storageBlob);
-        
-        // Clear input fields
+        // Clear inputs
         document.getElementById('clipboardContent').value = '';
         document.getElementById('docLink').value = '';
         document.getElementById('docUpload').value = '';
@@ -99,20 +84,14 @@ async function deleteClipboardItem(itemId) {
         renderClipboardItems(items);
     } catch (error) {
         console.error('Error deleting item:', error);
-async function openDocument(docFile) {
-    try {
-        const fs = await window.requestFileSystem(window.PERSISTENT, 1024*1024);
-        const file = await new Promise((resolve, reject) => {
-            fs.root.getFile(docFile.path, {}, resolve, reject);
-        });
-        
-        // Open file using default application
-        chrome.downloads.open(file);
-    } catch (error) {
-        console.error('Error opening document:', error);
     }
 }
 
+function openDocument(docFile) {
+    try {
+        chrome.downloads.show(docFile.downloadId);
+    } catch (error) {
+        console.error('Error opening document:', error);
     }
 }
 
